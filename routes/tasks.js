@@ -50,7 +50,7 @@ router.post(
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ errors: errors.array().map((e) => e.msg) });
     }
 
     const { title, description, team_id, assigned_to_id, due_date } = req.body;
@@ -71,7 +71,7 @@ router.post(
           description,
           team_id,
           assigned_to_id,
-          assigned_by_id: req.user.id, // Set the user who assigns the task
+          assigned_by_id: req.user.id,
           created_by: req.user.id,
           due_date,
         })
@@ -96,7 +96,7 @@ router.get(
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ errors: errors.array().map((e) => e.msg) });
     }
 
     const { team_id, assigned_to_id } = req.query;
@@ -131,12 +131,16 @@ router.put(
     body('title').optional().notEmpty().trim().withMessage('Title cannot be empty'),
     body('assigned_to_id').optional().isInt().withMessage('Assigned To ID must be an integer'),
     body('due_date').optional().isISO8601().withMessage('Due date must be a valid date'),
+    body('status')
+      .optional()
+      .isIn(['To Do', 'In Progress', 'Done'])
+      .withMessage('Status must be one of: To Do, In Progress, Done'),
   ],
   isTeamMember,
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ errors: errors.array().map((e) => e.msg) });
     }
 
     const { id } = req.params;

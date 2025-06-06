@@ -12,7 +12,7 @@ router.post(
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ errors: errors.array().map((e) => e.msg) });
     }
 
     const { name } = req.body;
@@ -48,7 +48,6 @@ router.get('/', isAuthenticated, async (req, res) => {
 router.get('/:teamId/members', isAuthenticated, async (req, res) => {
   const { teamId } = req.params;
   try {
-    // Check if user is a member of the team
     const membership = await db('memberships')
       .where({ team_id: teamId, user_id: req.user.id })
       .first();
@@ -75,7 +74,7 @@ router.post(
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ errors: errors.array().map((e) => e.msg) });
     }
 
     const { userId } = req.body;
@@ -118,9 +117,11 @@ router.delete('/:teamId', isAuthenticated, async (req, res) => {
     if (team.created_by !== req.user.id) {
       return res.status(403).json({ error: 'Only team creator can delete team' });
     }
-    await db('memberships').where({ team_id: teamId }).del();
-    await db('tasks').where({ team_id: teamId }).del();
-    await db('teams').where({ id: teamId }).del();
+    await db.transaction(async (trx) => {
+      await trx('memberships').where({ team_id: teamId }).del();
+      await trx('tasks').where({ team_id: teamId }).del();
+      await trx('teams').where({ id: teamId }).del();
+    });
     res.json({ message: 'Team deleted' });
   } catch (err) {
     console.error('Delete team error:', err);

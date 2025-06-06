@@ -1,29 +1,25 @@
 const jwt = require('jsonwebtoken');
+const { db } = require('../db');
 
-function isAuthenticated(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+const isAuthenticated = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
 
-  if (token) {
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = { id: decoded.id, email: decoded.email };
-      console.log('JWT authenticated user:', req.user);
-      return next();
-    } catch (err) {
-      console.error('JWT verification failed:', err.message);
-      return res.status(403).json({ error: 'Invalid or expired token' });
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await db('users').where({ id: decoded.id }).first();
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid token' });
     }
+    req.user = user;
+    next();
+  } catch (err) {
+    console.error('JWT verification error:', err);
+    return res.status(401).json({ error: 'Invalid or expired token' });
   }
-
-  if (req.session.passport && req.session.passport.user) {
-    req.user = { id: req.session.passport.user };
-    console.log('Session authenticated user ID:', req.user.id);
-    return next();
-  }
-
-  console.warn('Authentication failed: No valid JWT or session found');
-  return res.status(401).json({ error: 'Unauthorized' });
-}
+};
 
 module.exports = { isAuthenticated };
